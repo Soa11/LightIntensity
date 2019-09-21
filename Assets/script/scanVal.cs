@@ -4,8 +4,18 @@ using UnityEngine;
 using System.IO.Ports;
 using System;
 
+enum IntensityDirection
+{
+    Increase,
+    Same,
+    Decrease
+}
+
 public class scanVal : MonoBehaviour
 {
+
+    IntensityDirection myDir = IntensityDirection.Same;
+
     private int oldVal = 0;
 
     public UnitySerialPort sp;
@@ -13,7 +23,7 @@ public class scanVal : MonoBehaviour
     private string str = "";
     public int[] curValues;
     public int[] oldValues;
-    //public float oldValueTimeStamp = 0;
+    private IntensityDirection[] directions;
 
     // value used for timer check
     private float timer = 0.0f;
@@ -21,11 +31,12 @@ public class scanVal : MonoBehaviour
     public float period = 0.1f;
 
 
-    public float minLight = 0f;
-    public float maxLight = 10f;
+    public float minIntensity = 0f;
+    public float maxIntensity = 10f;
+    public float lightIntensityMultiplier = 1;
     static float t = 0.0f;
     Light lt;
-   
+
     // Use this for initialization
     void Start()
     {
@@ -36,7 +47,6 @@ public class scanVal : MonoBehaviour
         //init port
         sp = UnitySerialPort.Instance;
         sp.OpenSerialPort();
-
 
         lt = GetComponent<Light>();
 
@@ -54,54 +64,55 @@ public class scanVal : MonoBehaviour
         str = sp.RawData;
         curValues = splitString(str);
 
-        /*string s = "";
-
-         foreach (int item in curValues)
-         {
-             s += item.ToString();
-             s += ", ";
-         }
-
-
-         print("FIRST: " + s);*/
-
         //init values with specific array member
-        int o = 0;
-        int c = 0;
+        int o = oldValues[8];
+        int c = curValues[8];
 
-        o = oldValues[3];
-        c = curValues[3];
- 
-        //Timer
-        if (Time.time >= timer)
+        Debug.Log(c);
+
+        if (o < c)
         {
-            if (o < c)
-            {
-                lightOn();
-
-                print("INCREASE");
-                oldValues = curValues;
-            }
-            if (o == c)
-            {
-                //lt.intensity = lt.intensity;
-                lightOn();
-
-                print("same");
-                oldValues = curValues;
-            }
-            if (o > c )
-            {
-                lt.intensity = Mathf.Lerp(maxLight, minLight, t);
-                t += Time.deltaTime * 5 ;
-
-                print("DECREASE");
-                oldValues = curValues;
-            }
-
-            timer += period;
+            myDir = IntensityDirection.Increase;
+            
         }
-       
+        if (o == c)
+        {
+            myDir = IntensityDirection.Same;
+        }
+        if (o > c)
+        {
+            myDir = IntensityDirection.Decrease;
+        }
+
+        ChangeLightIntensity(myDir);
+        
+
+    }
+
+    void ChangeLightIntensity(IntensityDirection direction)
+    {
+        //direction is the name of the local direction variable
+        float dt = Time.deltaTime;
+        //print(direction);
+
+        switch (direction)
+        {
+            case IntensityDirection.Increase:
+                lt.intensity += dt * lightIntensityMultiplier;
+                break;
+            case IntensityDirection.Same:
+                // lt.intensity -= dt * lightIntensityMultiplier;
+                break;
+            case IntensityDirection.Decrease:
+                lt.intensity -= dt * lightIntensityMultiplier;
+                break;
+        }
+
+        lt.intensity = Mathf.Clamp(lt.intensity, minIntensity, maxIntensity);
+        //Debug.Log(lt.intensity);
+
+        oldValues = curValues;
+
     }
 
     private int[] splitString(string str)
@@ -122,10 +133,4 @@ public class scanVal : MonoBehaviour
         return readings;
     }
 
-    void lightOn()
-    {
-        lt.intensity = Mathf.Lerp(minLight, maxLight, t);
-        t += Time.deltaTime;
-    }
-  
 }
